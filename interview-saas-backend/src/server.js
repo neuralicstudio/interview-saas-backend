@@ -3,6 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import pool from './db/index.js';
 import { logger } from './utils/logger.js';
 
 // Import routes
@@ -13,6 +17,34 @@ import interviewRoutes from './routes/interviews.js';
 import rubricRoutes from './routes/rubrics.js';
 import webhookRoutes from './routes/webhooks.js';
 import healthRoutes from './routes/health.js';
+import interviewSessionRoutes from './routes/interview-session.js';
+
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Auto-run migrations on startup
+async function runMigrations() {
+  try {
+    logger.info('🚀 Running database migrations...');
+    const schemaPath = path.join(__dirname, 'db', 'schema.sql');
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+    await pool.query(schema);
+    logger.info('✅ Database migrations completed successfully');
+  } catch (error) {
+    // If migration fails, check if tables already exist
+    if (error.message && error.message.includes('already exists')) {
+      logger.info('✅ Database tables already exist, skipping migration');
+    } else {
+      logger.error('❌ Migration failed:', error.message);
+      // Don't exit - let the app start anyway for health checks
+      logger.info('⚠️  App will start but database may not be initialized');
+    }
+  }
+}
+
+// Run migrations before starting server
+await runMigrations();
 
 dotenv.config();
 
@@ -55,6 +87,7 @@ app.use('/api/candidates', candidateRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/rubrics', rubricRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/interview-session', interviewSessionRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -69,7 +102,8 @@ app.get('/', (req, res) => {
       candidates: '/api/candidates',
       interviews: '/api/interviews',
       rubrics: '/api/rubrics',
-      webhooks: '/api/webhooks'
+      webhooks: '/api/webhooks',
+      interviewSession: '/api/interview-session'
     }
   });
 });
