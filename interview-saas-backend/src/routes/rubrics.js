@@ -1,6 +1,7 @@
 import express from 'express';
 import { query } from '../db/index.js';
 import { authenticateCompany } from '../middleware/auth.js';
+import RubricBuilderAgent from '../agents/RubricBuilderAgent.js';
 
 const router = express.Router();
 
@@ -28,41 +29,8 @@ router.post('/generate', authenticateCompany, async (req, res) => {
     
     const job = jobResult.rows[0];
     
-    // TODO: Call Rubric Builder Agent to generate questions
-    // For now, create a placeholder rubric structure
-    const rubric = {
-      competencies: [
-        { name: "Technical Skills", weight: 0.4, must_have: true },
-        { name: "Problem Solving", weight: 0.3, must_have: true },
-        { name: "Communication", weight: 0.2, must_have: false },
-        { name: "Culture Fit", weight: 0.1, must_have: false }
-      ],
-      question_bank: {
-        warmup: [
-          "Tell me about your background and recent projects",
-          "What interests you about this role?"
-        ],
-        claim_verification: [
-          `You mentioned ${job.required_skills?.[0] || 'a skill'} on your resume. Can you describe a recent project where you used it?`
-        ],
-        scenario: [
-          "Imagine you're facing a production issue with high latency. Walk me through your debugging approach."
-        ],
-        depth: [
-          "Why did you choose that approach over alternatives?",
-          "What tradeoffs did you consider?"
-        ],
-        reflection: [
-          "What would you do differently in hindsight?"
-        ]
-      },
-      evaluation_criteria: {
-        technical_depth: "Demonstrates deep understanding vs surface knowledge",
-        consistency: "Answers align with CV claims",
-        reasoning: "Shows clear logical thinking and tradeoff analysis",
-        authenticity: "Responses sound natural and personal vs generic/AI-generated"
-      }
-    };
+    // Use AI Rubric Builder Agent to generate questions
+    const rubric = await RubricBuilderAgent.generateRubric(job, job.language || 'en');
     
     // Save rubric
     const result = await query(`
