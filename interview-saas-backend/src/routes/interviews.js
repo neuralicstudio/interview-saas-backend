@@ -3,6 +3,8 @@ import { query, transaction } from '../db/index.js';
 import { authenticateCompany, checkQuota } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
+import EmailService from '../services/EmailService.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -10,7 +12,8 @@ const createInterviewSchema = Joi.object({
   job_id: Joi.string().uuid().required(),
   candidate_id: Joi.string().uuid().required(),
   language: Joi.string().valid('en', 'es', 'ar', 'hi', 'fr').default('en'),
-  duration_minutes: Joi.number().min(5).max(60).default(15)
+  duration_minutes: Joi.number().min(5).max(60).default(15),
+  send_email: Joi.boolean().default(true)
 });
 
 /**
@@ -24,7 +27,7 @@ router.post('/', authenticateCompany, checkQuota, async (req, res) => {
       return res.status(400).json({ error: error.details[0].message });
     }
     
-    const { job_id, candidate_id, language, duration_minutes } = value;
+    const { job_id, candidate_id, language, duration_minutes, send_email } = value;
     
     // Verify job belongs to company
     const jobCheck = await query(
@@ -93,11 +96,42 @@ router.post('/', authenticateCompany, checkQuota, async (req, res) => {
     
     const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/interview/${result.invite.token}`;
     
+    // Send email invite to candidate if enabled
+    if (send_email) {
+      try {
+        // Get job and company details for email
+        const jobDetails = await query(
+          'SELECT j.title, c.name as company_name FROM jobs j JOIN companies c ON j.company_id = c.id WHERE j.id = $1',
+          [job_id]
+        );
+
+        if (jobDetails.rows.length > 0) {
+          const { title: jobTitle, company_name: companyName } = jobDetails.rows[0];
+
+          await EmailService.sendInterviewInvite({
+            candidateEmail: result.candidate_email,
+            candidateName: candidateCheck.rows[0].full_name,
+            companyName,
+            jobTitle,
+            inviteUrl,
+            durationMinutes: duration_minutes,
+            language
+          });
+
+          logger.info(`Email invite sent to ${result.candidate_email}`);
+        }
+      } catch (emailError) {
+        // Log email error but don't fail the request
+        logger.error('Failed to send email invite:', emailError);
+      }
+    }
+    
     res.status(201).json({
       message: 'Interview created successfully',
       interview: result.interview,
       invite_url: inviteUrl,
-      candidate_email: result.candidate_email
+      candidate_email: result.candidate_email,
+      email_sent: send_email
     });
   } catch (error) {
     console.error('Create interview error:', error);
