@@ -3,10 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import pool from './db/index.js';
 import { logger } from './utils/logger.js';
 
 // Import routes
@@ -19,41 +15,10 @@ import webhookRoutes from './routes/webhooks.js';
 import healthRoutes from './routes/health.js';
 import interviewSessionRoutes from './routes/interview-session.js';
 
-// Get current directory for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Auto-run migrations on startup
-async function runMigrations() {
-  try {
-    logger.info('🚀 Running database migrations...');
-    const schemaPath = path.join(__dirname, 'db', 'schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf8');
-    await pool.query(schema);
-    logger.info('✅ Database migrations completed successfully');
-  } catch (error) {
-    // If migration fails, check if tables already exist
-    if (error.message && error.message.includes('already exists')) {
-      logger.info('✅ Database tables already exist, skipping migration');
-    } else {
-      logger.error('❌ Migration failed:', error.message);
-      // Don't exit - let the app start anyway for health checks
-      logger.info('⚠️  App will start but database may not be initialized');
-    }
-  }
-}
-
-// Run migrations before starting server
-await runMigrations();
-
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// IMPORTANT: Trust proxy for Render deployment
-// This must come BEFORE rate limiting middleware
-app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -66,9 +31,7 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
+  message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
 
@@ -108,8 +71,7 @@ app.get('/', (req, res) => {
       candidates: '/api/candidates',
       interviews: '/api/interviews',
       rubrics: '/api/rubrics',
-      webhooks: '/api/webhooks',
-      interviewSession: '/api/interview-session'
+      webhooks: '/api/webhooks'
     }
   });
 });
