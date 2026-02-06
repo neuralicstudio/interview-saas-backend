@@ -14,6 +14,7 @@ import WebSocketService from './services/WebSocketService.js';
 // Import routes
 import authRoutes from './routes/auth.js';
 import jobRoutes from './routes/jobs.js';
+import analyticsRoutes from './routes/analytics.js';
 import candidateRoutes from './routes/candidates.js';
 import interviewRoutes from './routes/interviews.js';
 import rubricRoutes from './routes/rubrics.js';
@@ -102,6 +103,7 @@ app.use('/api/candidates', candidateRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/rubrics', rubricRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/interview-session', interviewSessionRoutes);
 
 // Root endpoint
