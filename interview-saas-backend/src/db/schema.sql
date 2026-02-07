@@ -158,17 +158,32 @@ CREATE TABLE video_frames (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Vision Analysis
+CREATE TABLE IF NOT EXISTS vision_analyses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  interview_id UUID NOT NULL REFERENCES interviews(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  analysis_data JSONB NOT NULL,
+  frames_analyzed INTEGER NOT NULL,
+  analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(interview_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vision_analyses_interview ON vision_analyses(interview_id);
+CREATE INDEX IF NOT EXISTS idx_vision_analyses_company ON vision_analyses(company_id);
+
 -- Odoo Integration
 ALTER TABLE companies 
 ADD COLUMN IF NOT EXISTS odoo_config JSONB;
 
 CREATE TABLE IF NOT EXISTS odoo_mappings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
   odoo_applicant_id INTEGER NOT NULL,
-  synced_at TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW(),
+  synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(company_id, candidate_id)
 );
 
@@ -200,26 +215,4 @@ CREATE TABLE webhooks (
 
 -- Indexes for performance
 CREATE INDEX idx_companies_email ON companies(email);
-CREATE INDEX idx_jobs_company_id ON jobs(company_id);
-CREATE INDEX idx_jobs_status ON jobs(status);
-CREATE INDEX idx_interviews_company_id ON interviews(company_id);
-CREATE INDEX idx_interviews_candidate_id ON interviews(candidate_id);
 CREATE INDEX idx_interviews_status ON interviews(status);
-CREATE INDEX idx_interviews_created_at ON interviews(created_at DESC);
-CREATE INDEX idx_candidates_email ON candidates(email);
-CREATE INDEX idx_agent_observations_interview_id ON agent_observations(interview_id);
-CREATE INDEX idx_video_frames_interview_id ON video_frames(interview_id);
-CREATE INDEX idx_usage_logs_company_id ON usage_logs(company_id);
-
--- Trigger to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_companies_updated_at BEFORE UPDATE ON companies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_jobs_updated_at BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_interviews_updated_at BEFORE UPDATE ON interviews FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
