@@ -8,6 +8,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import pool from './db/index.js';
+import visionRoutes from './routes/vision.js';
 import { logger } from './utils/logger.js';
 import WebSocketService from './services/WebSocketService.js';
 
@@ -106,6 +107,7 @@ app.use('/api/rubrics', rubricRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/odoo', odooRoutes);
+app.use('/api/vision', visionRoutes);
 app.use('/api/interview-session', interviewSessionRoutes);
 
 // Root endpoint
