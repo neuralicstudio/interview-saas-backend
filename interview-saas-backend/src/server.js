@@ -20,6 +20,7 @@ import interviewRoutes from './routes/interviews.js';
 import rubricRoutes from './routes/rubrics.js';
 import webhookRoutes from './routes/webhooks.js';
 import healthRoutes from './routes/health.js';
+import odooRoutes from './routes/odoo.js';
 import interviewSessionRoutes from './routes/interview-session.js';
 
 // Get current directory for ES modules
@@ -104,6 +105,7 @@ app.use('/api/interviews', interviewRoutes);
 app.use('/api/rubrics', rubricRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/odoo', odooRoutes);
 app.use('/api/interview-session', interviewSessionRoutes);
 
 // Root endpoint
