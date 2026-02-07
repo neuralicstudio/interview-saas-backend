@@ -149,6 +149,20 @@ CREATE TABLE agent_observations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Webhook Logs
+CREATE TABLE IF NOT EXISTS webhook_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  webhook_id UUID NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+  event VARCHAR(100) NOT NULL,
+  status VARCHAR(20) NOT NULL, -- success, failed
+  response_status INTEGER,
+  error_message TEXT,
+  sent_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook ON webhook_logs(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_sent_at ON webhook_logs(sent_at DESC);
+
 -- Video Frame Analysis (behavioral signals only)
 CREATE TABLE video_frames (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
