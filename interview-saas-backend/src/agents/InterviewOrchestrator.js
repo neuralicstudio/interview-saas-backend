@@ -3,6 +3,7 @@ import ConsistencyCheckerAgent from './ConsistencyCheckerAgent.js';
 import AuthenticitySignalAgent from './AuthenticitySignalAgent.js';
 import StressMonitorAgent from './StressMonitorAgent.js';
 import ReportSynthesizerAgent from './ReportSynthesizerAgent.js';
+import WebhookService from '../services/WebhookService.js';
 import { query } from '../db/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -15,7 +16,7 @@ export class InterviewOrchestrator {
     this.interviewId = interviewId;
     this.phases = ['warmup', 'claim_verification', 'scenario', 'depth', 'reflection'];
     this.currentPhaseIndex = 0;
-    
+
     // Agent instances
     this.interviewer = InterviewerAgent;
     this.consistencyChecker = ConsistencyCheckerAgent;
@@ -24,12 +25,10 @@ export class InterviewOrchestrator {
     this.reportSynthesizer = ReportSynthesizerAgent;
   }
 
-  /**
-   * Load interview context from database
-   */
   async loadContext() {
     try {
-      const result = await query(`
+      const result = await query(
+        `
         SELECT 
           i.*,
           j.title as job_title, j.description as job_description, 
@@ -42,15 +41,16 @@ export class InterviewOrchestrator {
         LEFT JOIN candidates c ON i.candidate_id = c.id
         LEFT JOIN rubrics r ON i.rubric_id = r.id
         WHERE i.id = $1
-      `, [this.interviewId]);
+      `,
+        [this.interviewId]
+      );
 
       if (result.rows.length === 0) {
         throw new Error('Interview not found');
       }
 
       this.context = result.rows[0];
-      
-      // Parse JSONB fields
+
       this.context.transcript = this.context.transcript || [];
       this.context.live_state = this.context.live_state || {
         stress_level: 'low',
@@ -58,7 +58,7 @@ export class InterviewOrchestrator {
         flags: [],
         phase_index: 0
       };
-      
+
       this.currentPhaseIndex = this.context.live_state.phase_index || 0;
 
       return this.context;
@@ -68,9 +68,6 @@ export class InterviewOrchestrator {
     }
   }
 
-  /**
-   * Start interview - generate opening
-   */
   async startInterview() {
     try {
       await this.loadContext();
@@ -86,7 +83,6 @@ export class InterviewOrchestrator {
         this.context.language
       );
 
-      // Add to transcript
       await this.addToTranscript('ai', opening);
 
       return {
@@ -99,18 +95,12 @@ export class InterviewOrchestrator {
     }
   }
 
-  /**
-   * Process candidate response and get next question
-   * @param {String} candidateResponse - Candidate's answer
-   */
   async processResponse(candidateResponse) {
     try {
       await this.loadContext();
 
-      // Add candidate response to transcript
       await this.addToTranscript('candidate', candidateResponse);
 
-      // Run observer agents in parallel
       const [stressCheck, signalCheck] = await Promise.all([
         this.stressMonitor.quickStressCheck(candidateResponse),
         this.authenticitySignal.quickSignalCheck(
@@ -119,17 +109,14 @@ export class InterviewOrchestrator {
         )
       ]);
 
-      // Update live state
       await this.updateLiveState({
         stress_level: stressCheck.stress_level,
         last_signal_check: signalCheck
       });
 
-      // Log observations
       await this.logObservation('stress_monitor', stressCheck);
       await this.logObservation('authenticity_signal', signalCheck);
 
-      // Check if we should advance phase
       const shouldAdvance = await this.shouldAdvancePhase();
       if (shouldAdvance) {
         this.currentPhaseIndex = Math.min(
@@ -139,12 +126,10 @@ export class InterviewOrchestrator {
         await this.updatePhaseIndex(this.currentPhaseIndex);
       }
 
-      // Check if interview should end
       if (this.shouldEndInterview()) {
         return await this.endInterview();
       }
 
-      // Generate next question
       const context = {
         job: {
           title: this.context.job_title,
@@ -169,9 +154,10 @@ export class InterviewOrchestrator {
 
       let nextQuestion;
 
-      // If stress is high, maybe add reassurance first
       if (stressCheck.stress_level === 'high' && Math.random() > 0.5) {
-        const reassurance = await this.stressMonitor.generateReassurance(this.context.language);
+        const reassurance = await this.stressMonitor.generateReassurance(
+          this.context.language
+        );
         await this.addToTranscript('ai', reassurance);
         nextQuestion = reassurance;
       } else {
@@ -190,35 +176,30 @@ export class InterviewOrchestrator {
     }
   }
 
-  /**
-   * End interview and generate report
-   */
   async endInterview() {
     try {
       await this.loadContext();
 
-      // Generate closing message
       const closing = await this.interviewer.generateClosing(this.context.language);
       await this.addToTranscript('ai', closing);
 
-      // Run comprehensive analysis
-      const [consistencyAnalysis, authenticityAnalysis, stressAssessment] = await Promise.all([
-        this.consistencyChecker.checkConsistency(
-          {
-            resume_text: this.context.resume_text,
-            resume_parsed: this.context.resume_parsed
-          },
-          this.context.transcript,
-          {
-            competencies: this.context.competencies,
-            question_bank: this.context.question_bank
-          }
-        ),
-        this.authenticitySignal.analyzeSignals(this.context.transcript),
-        this.stressMonitor.assessStress(this.context.transcript)
-      ]);
+      const [consistencyAnalysis, authenticityAnalysis, stressAssessment] =
+        await Promise.all([
+          this.consistencyChecker.checkConsistency(
+            {
+              resume_text: this.context.resume_text,
+              resume_parsed: this.context.resume_parsed
+            },
+            this.context.transcript,
+            {
+              competencies: this.context.competencies,
+              question_bank: this.context.question_bank
+            }
+          ),
+          this.authenticitySignal.analyzeSignals(this.context.transcript),
+          this.stressMonitor.assessStress(this.context.transcript)
+        ]);
 
-      // Generate comprehensive report
       const report = await this.reportSynthesizer.generateReport(
         this.context,
         {
@@ -244,8 +225,8 @@ export class InterviewOrchestrator {
         }
       );
 
-      // Update interview with final results
-      await query(`
+      await query(
+        `
         UPDATE interviews SET
           status = 'completed',
           completed_at = NOW(),
@@ -258,23 +239,44 @@ export class InterviewOrchestrator {
           report_data = $7,
           report_generated = true
         WHERE id = $8
-      `, [
-        report.overall_score,
-        JSON.stringify(report.strengths),
-        JSON.stringify(report.weaknesses),
-        consistencyAnalysis.cv_consistency_score,
-        authenticityAnalysis.authenticity_risk,
-        report.recommendation,
-        JSON.stringify(report),
-        this.interviewId
-      ]);
+      `,
+        [
+          report.overall_score,
+          JSON.stringify(report.strengths),
+          JSON.stringify(report.weaknesses),
+          consistencyAnalysis.cv_consistency_score,
+          authenticityAnalysis.authenticity_risk,
+          report.recommendation,
+          JSON.stringify(report),
+          this.interviewId
+        ]
+      );
+
+      // Trigger webhook for interview completion
+      try {
+        await WebhookService.triggerEvent(
+          this.context.company_id,
+          'interview.completed',
+          {
+            interview_id: this.interviewId,
+            candidate_email: this.context.candidate_email,
+            candidate_name: this.context.candidate_name,
+            job_title: this.context.job_title,
+            overall_score: report.overall_score,
+            recommendation: report.recommendation,
+            completed_at: new Date().toISOString()
+          }
+        );
+      } catch (webhookError) {
+        logger.error('Failed to trigger webhook:', webhookError);
+      }
 
       logger.info(`Interview ${this.interviewId} completed successfully`);
 
       return {
         message: closing,
         completed: true,
-        report: report
+        report
       };
     } catch (error) {
       logger.error('Failed to end interview:', error);
@@ -282,9 +284,6 @@ export class InterviewOrchestrator {
     }
   }
 
-  /**
-   * Helper: Add message to transcript
-   */
   async addToTranscript(speaker, text) {
     const message = {
       speaker,
@@ -292,11 +291,14 @@ export class InterviewOrchestrator {
       timestamp: new Date().toISOString()
     };
 
-    await query(`
+    await query(
+      `
       UPDATE interviews 
       SET transcript = transcript || $1::jsonb
       WHERE id = $2
-    `, [JSON.stringify([message]), this.interviewId]);
+    `,
+      [JSON.stringify([message]), this.interviewId]
+    );
 
     if (!this.context.transcript) {
       this.context.transcript = [];
@@ -304,77 +306,70 @@ export class InterviewOrchestrator {
     this.context.transcript.push(message);
   }
 
-  /**
-   * Helper: Update live state
-   */
   async updateLiveState(updates) {
     const newState = { ...this.context.live_state, ...updates };
-    
-    await query(`
+
+    await query(
+      `
       UPDATE interviews 
       SET live_state = $1
       WHERE id = $2
-    `, [JSON.stringify(newState), this.interviewId]);
+    `,
+      [JSON.stringify(newState), this.interviewId]
+    );
 
     this.context.live_state = newState;
   }
 
-  /**
-   * Helper: Update phase index
-   */
   async updatePhaseIndex(index) {
     await this.updateLiveState({ phase_index: index });
   }
 
-  /**
-   * Helper: Log agent observation
-   */
   async logObservation(agentType, observation) {
-    await query(`
+    await query(
+      `
       INSERT INTO agent_observations (interview_id, agent_type, observation)
       VALUES ($1, $2, $3)
-    `, [this.interviewId, agentType, JSON.stringify(observation)]);
+    `,
+      [this.interviewId, agentType, JSON.stringify(observation)]
+    );
   }
 
-  /**
-   * Helper: Get last AI message
-   */
   getLastAIMessage() {
-    const aiMessages = this.context.transcript.filter(m => m.speaker === 'ai');
-    return aiMessages.length > 0 ? aiMessages[aiMessages.length - 1].text : '';
+    const aiMessages = this.context.transcript.filter(
+      (m) => m.speaker === 'ai'
+    );
+    return aiMessages.length > 0
+      ? aiMessages[aiMessages.length - 1].text
+      : '';
   }
 
-  /**
-   * Determine if should advance to next phase
-   */
   async shouldAdvancePhase() {
     const currentPhase = this.phases[this.currentPhaseIndex];
-    const phaseMessages = this.context.transcript.filter(m => 
-      m.speaker === 'candidate' && 
-      this.context.live_state.phase_index === this.currentPhaseIndex
+    const phaseMessages = this.context.transcript.filter(
+      (m) =>
+        m.speaker === 'candidate' &&
+        this.context.live_state.phase_index === this.currentPhaseIndex
     );
 
-    // Advance after 3-4 questions per phase (except reflection)
     const minQuestionsPerPhase = currentPhase === 'reflection' ? 2 : 3;
     return phaseMessages.length >= minQuestionsPerPhase;
   }
 
-  /**
-   * Determine if interview should end
-   */
   shouldEndInterview() {
-    // End after completing all phases
     if (this.currentPhaseIndex >= this.phases.length - 1) {
-      const reflectionMessages = this.context.transcript.filter(m => 
-        m.speaker === 'candidate' && 
-        this.phases[this.context.live_state.phase_index] === 'reflection'
+      const reflectionMessages = this.context.transcript.filter(
+        (m) =>
+          m.speaker === 'candidate' &&
+          this.phases[this.context.live_state.phase_index] === 'reflection'
       );
       return reflectionMessages.length >= 2;
     }
 
-    // Or if interview is too long (safety check)
-    const candidateMessages = this.context.transcript.filter(m => m.speaker === 'candidate');
-    return candidateMessages.length >= 20; // Max 20 candidate responses
+    const candidateMessages = this.context.transcript.filter(
+      (m) => m.speaker === 'candidate'
+    );
+    return candidateMessages.length >= 20;
   }
 }
 
