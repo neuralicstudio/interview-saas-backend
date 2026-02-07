@@ -15,7 +15,7 @@ export const MODELS = {
   GPT35_TURBO: 'gpt-3.5-turbo',
   WHISPER: 'whisper-1',
   TTS: 'tts-1',
-  VISION: 'gpt-4-vision-preview'
+  GPT4_VISION: 'gpt-4-vision-preview',  // ← ADD THIS LINE
 };
 
 /**
