@@ -7,8 +7,6 @@ const { query } = require('../db');
 // ... rest of your code stays the same
 import Joi from 'joi';
 
-const router = express.Router();
-
 const analyzeFrameSchema = Joi.object({
   interview_id: Joi.string().uuid().required(),
   frames: Joi.array().items(Joi.string()).min(1).max(10).required(),
