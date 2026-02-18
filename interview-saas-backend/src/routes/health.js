@@ -1,4 +1,4 @@
-import express from 'express';
+const express = require('express');
 import { query } from '../db/index.js';
 
 const router = express.Router();
