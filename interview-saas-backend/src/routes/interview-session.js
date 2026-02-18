@@ -1,4 +1,4 @@
-import express from 'express';
+const express = require('express');
 import InterviewOrchestrator from '../agents/InterviewOrchestrator.js';
 import { query } from '../db/index.js';
 import { logger } from '../utils/logger.js';
