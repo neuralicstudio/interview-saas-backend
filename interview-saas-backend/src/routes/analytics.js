@@ -1,5 +1,5 @@
-import express from 'express';
-import { authenticateCompany } from '../middleware/auth.js';
+const express = require('express');
+const { authenticateCompany } = require('../middleware/auth');
 import AnalyticsService from '../services/AnalyticsService.js';
 import Joi from 'joi';
 
