@@ -1,6 +1,6 @@
-import express from 'express';
+const express = require('express');
+const { authenticateCompany,, checkQuota } = require('../middleware/auth');
 import { query, transaction } from '../db/index.js';
-import { authenticateCompany, checkQuota } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import EmailService from '../services/EmailService.js';
