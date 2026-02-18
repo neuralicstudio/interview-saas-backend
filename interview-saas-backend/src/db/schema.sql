@@ -257,6 +257,34 @@ ALTER TABLE interviews
 ADD COLUMN IF NOT EXISTS hr_supervision_enabled BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS hr_observers_count INTEGER DEFAULT 0;
 
+-- Authentication Tables
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Ensure companies table has password_hash
+ALTER TABLE companies 
+ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
+
 -- Indexes for performance
 CREATE INDEX idx_companies_email ON companies(email);
 CREATE INDEX idx_interviews_status ON interviews(status);
