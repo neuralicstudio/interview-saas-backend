@@ -1,104 +1,175 @@
-import { verifyToken } from '../utils/auth.js';
-import { query } from '../db/index.js';
+const jwt = require('jsonwebtoken');
+const { query } = require('../db');
+const logger = require('../utils/logger');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
 /**
- * Middleware to authenticate company JWT tokens
+ * Authenticate using JWT token (NEW - for user authentication)
  */
-export const authenticateCompany = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
+    // Get token from header
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer TOKEN"
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access token required'
+      });
     }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Attach user info to request
+    req.company = {
+      id: decoded.companyId || decoded.userId,
+      email: decoded.email,
+      role: decoded.role || 'admin'
+    };
+
+    next();
+  } catch (error) {
+    logger.error('Token authentication error:', error);
     
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-    
-    // Verify company exists
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication failed'
+    });
+  }
+};
+
+/**
+ * Authenticate using API key (EXISTING - keep for backwards compatibility)
+ */
+const authenticateCompany = async (req, res, next) => {
+  try {
+    // Check for API key in header or query
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+
+    if (!apiKey) {
+      return res.status(401).json({
+        success: false,
+        message: 'API key required'
+      });
+    }
+
+    // Validate API key
     const result = await query(
-      'SELECT id, name, email, subscription_tier FROM companies WHERE id = $1',
-      [decoded.companyId]
+      'SELECT id, name, email FROM companies WHERE api_key = $1',
+      [apiKey]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid API key'
+      });
     }
-    
+
+    // Attach company info to request
     req.company = result.rows[0];
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    logger.error('API key authentication error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication failed'
+    });
   }
 };
 
 /**
- * Middleware to authenticate API keys
+ * Flexible authentication - accepts either JWT token OR API key
  */
-export const authenticateApiKey = async (req, res, next) => {
-  try {
-    const apiKey = req.headers['x-api-key'];
-    
-    if (!apiKey) {
-      return res.status(401).json({ error: 'API key required' });
+const authenticateEither = async (req, res, next) => {
+  // Try JWT first
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.company = {
+        id: decoded.companyId || decoded.userId,
+        email: decoded.email,
+        role: decoded.role || 'admin'
+      };
+      return next();
+    } catch (error) {
+      // JWT failed, try API key
     }
-    
-    // Find API key (note: in production, hash the key before lookup)
-    const result = await query(`
-      SELECT ak.*, c.id as company_id, c.name, c.subscription_tier
-      FROM api_keys ak
-      JOIN companies c ON ak.company_id = c.id
-      WHERE ak.is_active = true 
-      AND (ak.expires_at IS NULL OR ak.expires_at > NOW())
-      LIMIT 1
-    `);
-    
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
-    
-    const keyData = result.rows[0];
-    
-    // Update last_used_at
-    await query(
-      'UPDATE api_keys SET last_used_at = NOW() WHERE id = $1',
-      [keyData.id]
-    );
-    
-    req.company = {
-      id: keyData.company_id,
-      name: keyData.name,
-      subscription_tier: keyData.subscription_tier
-    };
-    
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'API key authentication failed' });
   }
+
+  // Try API key
+  const apiKey = req.headers['x-api-key'] || req.query.api_key;
+
+  if (apiKey) {
+    try {
+      const result = await query(
+        'SELECT id, name, email FROM companies WHERE api_key = $1',
+        [apiKey]
+      );
+
+      if (result.rows.length > 0) {
+        req.company = result.rows[0];
+        return next();
+      }
+    } catch (error) {
+      logger.error('API key authentication error:', error);
+    }
+  }
+
+  // Both failed
+  return res.status(401).json({
+    success: false,
+    message: 'Authentication required (JWT token or API key)'
+  });
 };
 
 /**
- * Middleware to check subscription limits
+ * Optional authentication - doesn't block if no auth provided
  */
-export const checkQuota = async (req, res, next) => {
-  try {
-    const result = await query(
-      'SELECT interviews_quota, interviews_used FROM companies WHERE id = $1',
-      [req.company.id]
-    );
-    
-    const { interviews_quota, interviews_used } = result.rows[0];
-    
-    if (interviews_used >= interviews_quota) {
-      return res.status(403).json({ 
-        error: 'Interview quota exceeded',
-        quota: interviews_quota,
-        used: interviews_used
-      });
+const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.company = {
+        id: decoded.companyId || decoded.userId,
+        email: decoded.email,
+        role: decoded.role || 'admin'
+      };
+    } catch (error) {
+      // Token invalid but we don't block
+      logger.debug('Optional auth token invalid');
     }
-    
-    next();
-  } catch (error) {
-    return res.status(500).json({ error: 'Failed to check quota' });
   }
+
+  next();
+};
+
+module.exports = {
+  authenticateToken,      // NEW - JWT authentication
+  authenticateCompany,    // EXISTING - API key authentication
+  authenticateEither,     // NEW - Accept either JWT or API key
+  optionalAuth           // NEW - Optional authentication
 };
