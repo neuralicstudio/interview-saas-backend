@@ -1,6 +1,6 @@
-import express from 'express';
+const express = require('express');
+const { authenticateCompany } = require('../middleware/auth');
 import { query } from '../db/index.js';
-import { authenticateCompany } from '../middleware/auth.js';
 import OdooService from '../services/OdooService.js';
 import Joi from 'joi';
 
