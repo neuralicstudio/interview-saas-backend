@@ -1,7 +1,10 @@
-import express from 'express';
-import { authenticateCompany } from '../middleware/auth.js';
-import VisionAnalysisService from '../services/VisionAnalysisService.js';
-import { query } from '../db/index.js';
+const express = require('express');
+const router = express.Router();
+const { authenticateCompany } = require('../middleware/auth'); // ✅ FIXED
+const VisionAnalysisService = require('../services/VisionAnalysisService');
+const { query } = require('../db');
+
+// ... rest of your code stays the same
 import Joi from 'joi';
 
 const router = express.Router();
