@@ -1,6 +1,6 @@
-import express from 'express';
-import { query } from '../db/index.js';
+const express = require('express');
 const { authenticateCompany } = require('../middleware/auth');
+import { query } from '../db/index.js';
 import Joi from 'joi';
 
 const router = express.Router();
