@@ -22,7 +22,6 @@ import rubricRoutes from './routes/rubrics.js';
 import webhookRoutes from './routes/webhooks.js';
 import healthRoutes from './routes/health.js';
 import odooRoutes from './routes/odoo.js';
-const authRoutes = require('./routes/auth');
 import interviewSessionRoutes from './routes/interview-session.js';
 
 // Get current directory for ES modules
