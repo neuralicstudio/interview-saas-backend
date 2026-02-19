@@ -382,4 +382,4 @@ router.post('/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;  // ✅ NOT "export default router"
