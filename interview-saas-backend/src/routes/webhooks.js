@@ -1,8 +1,8 @@
 const express = require('express');
 const { authenticateCompany } = require('../middleware/auth');
-import { query } from '../db/index.js';
-import WebhookService from '../services/WebhookService.js';
-import Joi from 'joi';
+const { query } = require('../db/index.js');
+const WebhookService = require('../services/WebhookService.js');
+const Joi = require('joi');
 
 const router = express.Router();
 
@@ -200,4 +200,4 @@ router.get('/:id/logs', authenticateCompany, async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
