@@ -1,10 +1,10 @@
 const express = require('express');
 const { authenticateCompany, checkQuota } = require('../middleware/auth');
-import { query, transaction } from '../db/index.js';
-import { v4 as uuidv4 } from 'uuid';
-import Joi from 'joi';
-import EmailService from '../services/EmailService.js';
-import { logger } from '../utils/logger.js';
+const { query, transaction } = require('../db/index.js');  // ✅ Fixed
+const { v4: uuidv4 } = require('uuid');  // ✅ Fixed
+const Joi = require('joi');  // ✅ Fixed
+const EmailService = require('../services/EmailService.js');  // ✅ Fixed
+const { logger } = require('../utils/logger.js');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -373,4 +373,4 @@ router.delete('/:id', authenticateCompany, async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
