@@ -1,5 +1,5 @@
 const express = require('express');
-import { query } from '../db/index.js';
+const { query } = require('../db/index.js');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -29,4 +29,4 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
