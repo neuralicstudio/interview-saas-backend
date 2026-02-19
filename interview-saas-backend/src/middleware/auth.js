@@ -172,8 +172,6 @@ const optionalAuth = async (req, res, next) => {
  */
 const checkQuota = async (req, res, next) => {
   try {
-    const { query } = require('../db');
-    
     const result = await query(
       'SELECT interviews_limit, interviews_used FROM companies WHERE id = $1',
       [req.company.id]
@@ -220,12 +218,5 @@ module.exports = {
   authenticateCompany,
   authenticateEither,
   optionalAuth,
-  checkQuota  // ✅ Add this
-};
-
-module.exports = {
-  authenticateToken,      // NEW - JWT authentication
-  authenticateCompany,    // EXISTING - API key authentication
-  authenticateEither,     // NEW - Accept either JWT or API key
-  optionalAuth           // NEW - Optional authentication
+  checkQuota
 };
