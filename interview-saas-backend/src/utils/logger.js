@@ -1,4 +1,5 @@
-import winston from 'winston';
+const winston = require('winston');
+const fs = require('fs');
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
@@ -18,7 +19,7 @@ const logFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
 });
 
 // Create logger instance
-export const logger = winston.createLogger({
+const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: combine(
     errors({ stack: true }),
@@ -44,7 +45,8 @@ export const logger = winston.createLogger({
 });
 
 // Create logs directory if it doesn't exist
-import fs from 'fs';
 if (!fs.existsSync('logs')) {
   fs.mkdirSync('logs');
 }
+
+module.exports = { logger };
