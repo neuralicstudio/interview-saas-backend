@@ -200,4 +200,4 @@ router.get('/:id/logs', authenticateCompany, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;  // ✅ NOT "export default router"
