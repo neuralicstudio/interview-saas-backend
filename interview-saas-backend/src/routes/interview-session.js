@@ -1,7 +1,7 @@
 const express = require('express');
-import InterviewOrchestrator from '../agents/InterviewOrchestrator.js';
-import { query } from '../db/index.js';
-import { logger } from '../utils/logger.js';
+const InterviewOrchestrator = require('../agents/InterviewOrchestrator.js');  // ✅ Fixed
+const { query } = require('../db/index.js');  // ✅ Fixed
+const { logger } = require('../utils/logger.js');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -176,4 +176,4 @@ router.post('/end/:interview_id', async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
