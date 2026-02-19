@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "AI Interview Agent SaaS Backend",
   "main": "src/server.js",
-  "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
