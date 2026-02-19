@@ -1,17 +1,13 @@
-import { openai, MODELS } from '../utils/openai.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { logger } from '../utils/logger.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { openai, MODELS } = require('../utils/openai.js');
+const fs = require('fs');
+const path = require('path');
+const { logger } = require('../utils/logger.js');
 
 /**
  * Voice Service
  * Handles text-to-speech (OpenAI TTS) and speech-to-text (Whisper)
  */
-export class VoiceService {
+class VoiceService {
   constructor() {
     // Available voices: alloy, echo, fable, onyx, nova, shimmer
     this.defaultVoice = 'nova'; // Professional, neutral
@@ -106,17 +102,12 @@ export class VoiceService {
   async speechToText(audioInput, language = null) {
     try {
       let audioFile;
+      let tempPath = null;
 
       // If audioInput is a buffer, save to temp file first
       if (Buffer.isBuffer(audioInput)) {
-        const tempPath = path.join(__dirname, '../../temp', `audio-${Date.now()}.mp3`);
+        tempPath = path.join('/tmp', `audio-${Date.now()}.mp3`);
         
-        // Ensure temp directory exists
-        const tempDir = path.dirname(tempPath);
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
-
         fs.writeFileSync(tempPath, audioInput);
         audioFile = fs.createReadStream(tempPath);
       } else if (typeof audioInput === 'string') {
@@ -141,11 +132,8 @@ export class VoiceService {
       });
 
       // Clean up temp file if we created one
-      if (Buffer.isBuffer(audioInput)) {
-        const tempPath = path.join(__dirname, '../../temp', `audio-${Date.now()}.mp3`);
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath);
-        }
+      if (tempPath && fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
       }
 
       return transcription.text;
@@ -225,4 +213,4 @@ export class VoiceService {
   }
 }
 
-module.exports = VoiceService;  // ✅ CORRECT
+module.exports = VoiceService;
