@@ -1,9 +1,9 @@
 const express = require('express');
 const { authenticateCompany } = require('../middleware/auth');
-import { query } from '../db/index.js';
-import { uploadResume, handleUploadError } from '../middleware/upload.js';
-import ResumeParserService from '../services/ResumeParserService.js';
-import Joi from 'joi';
+const { query } = require('../db/index.js');  // ✅ Fixed
+const { uploadResume, handleUploadError } = require('../middleware/upload.js');  // ✅ Fixed
+const ResumeParserService = require('../services/ResumeParserService.js');  // ✅ Fixed
+const Joi = require('joi');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -266,4 +266,4 @@ router.get('/:id/resume', authenticateCompany, async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
