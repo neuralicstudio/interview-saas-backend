@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticateCompany } = require('../middleware/auth');
-import AnalyticsService from '../services/AnalyticsService.js';
-import Joi from 'joi';
+const AnalyticsService = require('../services/AnalyticsService.js');  // ✅ Fixed
+const Joi = require('joi');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -244,4 +244,4 @@ router.get('/dashboard', authenticateCompany, async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
