@@ -176,4 +176,4 @@ router.post('/end/:interview_id', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;  // ✅ NOT "export default router"
