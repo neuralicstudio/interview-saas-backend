@@ -120,4 +120,4 @@ router.post('/estimate-cost', authenticateCompany, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;  // ✅ Use this
