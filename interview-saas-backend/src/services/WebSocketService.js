@@ -1,5 +1,5 @@
 const socketIo = require('socket.io');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');  // ✅ Add { }
 const VoiceService = require('./VoiceService');
 const InterviewOrchestrator = require('../agents/InterviewOrchestrator');
 const { query } = require('../db');
