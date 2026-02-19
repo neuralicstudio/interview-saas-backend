@@ -167,6 +167,62 @@ const optionalAuth = async (req, res, next) => {
   next();
 };
 
+/**
+ * Check if company has remaining interview quota
+ */
+const checkQuota = async (req, res, next) => {
+  try {
+    const { query } = require('../db');
+    
+    const result = await query(
+      'SELECT interviews_limit, interviews_used FROM companies WHERE id = $1',
+      [req.company.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+
+    const { interviews_limit, interviews_used } = result.rows[0];
+
+    // If no limit set, allow unlimited
+    if (interviews_limit === null || interviews_limit === 0) {
+      return next();
+    }
+
+    // Check if quota exceeded
+    if (interviews_used >= interviews_limit) {
+      return res.status(403).json({
+        success: false,
+        message: 'Interview quota exceeded. Please upgrade your plan.',
+        quota: {
+          used: interviews_used,
+          limit: interviews_limit
+        }
+      });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Quota check error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check quota'
+    });
+  }
+};
+
+module.exports = {
+  authenticateToken,
+  authenticateCompany,
+  authenticateEither,
+  optionalAuth,
+  checkQuota  // ✅ Add this
+};
+
 module.exports = {
   authenticateToken,      // NEW - JWT authentication
   authenticateCompany,    // EXISTING - API key authentication
