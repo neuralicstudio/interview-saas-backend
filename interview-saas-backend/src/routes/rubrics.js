@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticateCompany } = require('../middleware/auth');
-import { query } from '../db/index.js';
-import RubricBuilderAgent from '../agents/RubricBuilderAgent.js';
+const { query } = require('../db/index.js');  // ✅ Fixed
+const RubricBuilderAgent = require('../agents/RubricBuilderAgent.js');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -185,4 +185,4 @@ router.patch('/:id/activate', authenticateCompany, async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
