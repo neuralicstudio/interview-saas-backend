@@ -221,4 +221,4 @@ router.delete('/:id', authenticateCompany, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;  // ✅ NOT "export default router"
