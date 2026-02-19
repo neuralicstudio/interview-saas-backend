@@ -1,32 +1,37 @@
-import express from 'express';
-import { createServer } from 'http';
-import cors from 'cors';
-import helmet from 'helmet';
-import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import pool from './db/index.js';
-import visionRoutes from './routes/vision.js';
-import { logger } from './utils/logger.js';
-import WebSocketService from './services/WebSocketService.js';
+const express = require('express');
+const { createServer } = require('http');
+const cors = require('cors');
+const helmet = require('helmet');
+const dotenv = require('dotenv');
+const rateLimit = require('express-rate-limit');
+const fs = require('fs');
+const path = require('path');
 
-// Import routes
-import authRoutes from './routes/auth.js';
-import jobRoutes from './routes/jobs.js';
-import analyticsRoutes from './routes/analytics.js';
-import candidateRoutes from './routes/candidates.js';
-import interviewRoutes from './routes/interviews.js';
-import rubricRoutes from './routes/rubrics.js';
-import webhookRoutes from './routes/webhooks.js';
-import healthRoutes from './routes/health.js';
-import odooRoutes from './routes/odoo.js';
-import interviewSessionRoutes from './routes/interview-session.js';
+// Local imports - Note: .js extensions are optional in CJS but kept for clarity
+const pool = require('./db/index.js');
+const visionRoutes = require('./routes/vision.js');
+const { logger } = require('./utils/logger.js');
+const WebSocketService = require('./services/WebSocketService.js');
 
-// Get current directory for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Route imports
+const authRoutes = require('./routes/auth.js');
+const jobRoutes = require('./routes/jobs.js');
+const analyticsRoutes = require('./routes/analytics.js');
+const candidateRoutes = require('./routes/candidates.js');
+const interviewRoutes = require('./routes/interviews.js');
+const rubricRoutes = require('./routes/rubrics.js');
+const webhookRoutes = require('./routes/webhooks.js');
+const healthRoutes = require('./routes/health.js');
+const odooRoutes = require('./routes/odoo.js');
+const interviewSessionRoutes = require('./routes/interview-session.js');
+
+// In CommonJS, __dirname and __filename are available globally
+// No need for fileURLToPath or import.meta.url
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Auto-run migrations on startup
 async function runMigrations() {
@@ -37,46 +42,33 @@ async function runMigrations() {
     await pool.query(schema);
     logger.info('✅ Database migrations completed successfully');
   } catch (error) {
-    // If migration fails, check if tables already exist
     if (error.message && error.message.includes('already exists')) {
       logger.info('✅ Database tables already exist, skipping migration');
     } else {
       logger.error('❌ Migration failed:', error.message);
-      // Don't exit - let the app start anyway for health checks
-      logger.info('⚠️  App will start but database may not be initialized');
+      logger.info('⚠️ App will start but database may not be initialized');
     }
   }
 }
 
-// Run migrations before starting server
-await runMigrations();
-
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Create HTTP server (needed for Socket.IO)
+// Create HTTP server
 const httpServer = createServer(app);
 
-// Initialize WebSocket service for voice interviews
+// Initialize WebSocket service
 const wsService = new WebSocketService(httpServer);
 logger.info('🎤 WebSocket service initialized for voice interviews');
 
-// IMPORTANT: Trust proxy for Render deployment
-// This must come BEFORE rate limiting middleware
 app.set('trust proxy', 1);
 
-// Security middleware
+// Middleware
 app.use(helmet());
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   credentials: true
 }));
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
@@ -84,11 +76,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
@@ -108,10 +98,8 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/odoo', odooRoutes);
 app.use('/api/vision', visionRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api/interview-session', interviewSessionRoutes);
 
-// Root endpoint
 app.get('/', (req, res) => {
   res.json({
     service: 'Interview SaaS Backend',
@@ -139,7 +127,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -147,22 +134,25 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   logger.error('Server error:', err);
-  
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
-// Start server (use httpServer instead of app.listen for Socket.IO)
-httpServer.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🎤 WebSocket ready for voice interviews`);
-  logger.info(`🌍 Multi-lingual support: en, es, ar, hi, fr`);
-});
+// Start logic wrapped to handle the migration promise
+async function startServer() {
+  await runMigrations();
+  httpServer.listen(PORT, () => {
+    logger.info(`🚀 Server running on port ${PORT}`);
+    logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`🎤 WebSocket ready for voice interviews`);
+    logger.info(`🌍 Multi-lingual support: en, es, ar, hi, fr`);
+  });
+}
 
-export default app;
+startServer();
+
+module.exports = app;
