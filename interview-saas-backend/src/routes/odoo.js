@@ -1,8 +1,8 @@
 const express = require('express');
 const { authenticateCompany } = require('../middleware/auth');
-import { query } from '../db/index.js';
-import OdooService from '../services/OdooService.js';
-import Joi from 'joi';
+const { query } = require('../db/index.js');  // ✅ Fixed
+const OdooService = require('../services/OdooService.js');  // ✅ Fixed
+const Joi = require('joi');  // ✅ Fixed
 
 const router = express.Router();
 
@@ -241,4 +241,4 @@ router.delete('/disconnect', authenticateCompany, async (req, res) => {
   }
 });
 
-module.exports = router;  // ✅ NOT "export default router"
+module.exports = router;
