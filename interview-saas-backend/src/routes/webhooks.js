@@ -1,6 +1,6 @@
 const socketIo = require('socket.io');
 const { logger } = require('../utils/logger');  // ✅ Fixed - destructured
-const VoiceService = require('./VoiceService');
+const WebhookService = require('../services/WebhookService.js');
 const InterviewOrchestrator = require('../agents/InterviewOrchestrator');
 const { query } = require('../db');
 
