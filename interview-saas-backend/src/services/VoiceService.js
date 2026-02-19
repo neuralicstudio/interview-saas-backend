@@ -225,4 +225,4 @@ export class VoiceService {
   }
 }
 
-export default new VoiceService();
+module.exports = VoiceService;  // ✅ CORRECT
